@@ -4,6 +4,7 @@
 library(Features)
 library(MsCoreUtils)
 library(SingleCellExperiment)
+library(sva)
 
 ##' @title SingleCellExperiment from tabular data
 ##'
@@ -117,7 +118,7 @@ nrowAssays <- function(x){
   return(out)
 }
 
-aggregateFeaturesSCE <- function(object, 
+scp_aggregateFeatures <- function(object, 
                                  i, 
                                  fcol, 
                                  name = "newAssay", 
@@ -150,7 +151,8 @@ aggregateFeaturesSCE <- function(object,
                                                   count = TRUE)
   
   se <- SingleCellExperiment(aggregated_assay,
-                             rowData = aggregated_rowdata[rownames(aggregated_assay), ])
+                             rowData = aggregated_rowdata[rownames(aggregated_assay), ],
+                             colData = colData(object[[i]]))
   hits <- findMatches(rownames(aggregated_assay), groupBy)
   elementMetadata(hits)$names_to <- rowdata_i[[fcol]][hits@to]
   elementMetadata(hits)$names_from <- rownames(assay_i)[hits@to]
@@ -165,6 +167,8 @@ aggregateFeaturesSCE <- function(object,
            assayLinks = assayLinks)
   
 }
+
+
 
 
 #' Combine two SingleCellExperiment object
@@ -185,15 +189,24 @@ aggregateFeaturesSCE <- function(object,
 #'
 #' @examples
 combineSCE <- function(x, 
-                       y, 
-                       i = 1, 
-                       j = 1,
+                       y,
                        ...) {
   stop("Not finished")
-  if (class(x) != class(y)) 
-    stop(paste0("objects must be the same class, but are ", 
-                class(x), ", ", class(y)))
-  assays(x)[i] <- combine(assayData(x)[i], assayData(y)[j])
+  ## TODO remove this check if function become method
+  if (!all(c(class(x), class(y) == "SingleCellExperiment"))) 
+    stop("'x' and 'y' must be objects of class 'SingleCellExperiment'")
+  
+  
+  
+  t1 <- assays(x)[[1]]
+  t2 <- assays(y)[[1]]
+  tcomb <- combine(t1, t2)
+  
+  dim(t1)
+  dim(t2)
+  dim(tcomb)
+  
+  assays(x)[i] <- combine(assays(x)[1], assays(y)[1])
   phenoData(x) <- combine(phenoData(x), phenoData(y))
   featureData(x) <- combine(featureData(x), featureData(y))
   experimentData(x) <- combine(experimentData(x), experimentData(y))
@@ -203,11 +216,212 @@ combineSCE <- function(x,
 }
 
 
-print.progress <- function(current, total, ...){
-  if(length(current)!=1 && length(total) != 1) stop("Arguments \'current\' and \'total\' must have length 1.")
-  perc <- format(current/total*100, digits = 0,...)
-  cat(paste0("\rProgress: ", perc, " %   "))
-  if(current == total) cat ("\n")
-  flush.console()
+combineFeatures <- function(x, 
+                            assays, 
+                            name = "combined"){
+  ## Check that all objects to combine are of same class
+  cl <- unique(vapply(experiments(x[, , assays]), class, character(1L)))
+  if (length(cl) != 1) 
+    stop("Only experiments of same class can be combined. ", 
+         paste0("'", cl, "'" , collapse = ", "), " classes were found.")
+  ## Create the combined assay and add it to the Features object
+  addAssay(object = x, 
+           x = do.call(combineSCE, experiments(x[, , assays])), 
+           assayLinks = AssayLinks(names = name), ## TODO think about creating assay links 
+           name = name)
 }
 
+
+
+####---- Potential new Features functions ----#### 
+
+
+getAssayLink <- function(x, ## SummarizedExperiment object to link from
+                         y, ## SummarizedExperiment object to link to
+                         from, ## name of object to link from
+                         name, ## name of object to link to
+                         fcol) {  ## the name of the shared feature variable in the respective rowData
+  ## Get mathc between x and y rows
+  fcolx <- rowData(x)[, fcol]
+  fcoly <- rowData(y)[, fcol]
+  hits <- findMatches(fcolx, fcoly)
+  ## Add the row values used for matching
+  elementMetadata(hits)$names_from <- rownames(x)[hits@to]
+  elementMetadata(hits)$names_to <- fcolx[hits@to]
+  AssayLink(name = name,
+            from = from,
+            fcol = fcol,
+            hits = hits)
+}
+
+####---- SCP specific functions ----####
+
+
+
+scp_filterSCR <- function(x, 
+                          samples, 
+                          carrier, 
+                          i = 1,
+                          thresh = 0.1){
+  # Check arguments
+  if(!inherits(x, "SingleCellExperiment")) 
+    stop("'x' must be an 'SingleCellExperiment' object")
+  if(length(carrier) != 1) stop("'carrier' must have length 1.")
+  # Compute ratios
+  ratios <- apply(assays(x)[[i]][, samples, drop = FALSE], 2, 
+                  function(val) val/assays(x)[[i]][, carrier])
+  # Filter data
+  x[which(rowMeans(ratios, na.rm = TRUE) <= thresh), ]
+}
+
+
+
+
+scp_normalizeFeatures <- function(x, 
+                                  i,
+                                  fcol,
+                                  FUN = "mean", 
+                                  na.rm = TRUE, 
+                                  name = NULL){
+  if (FUN == "mean") 
+    FUN <- function(val) val - mean(val, na.rm = na.rm)
+  if(is.numeric(i))
+    i <- names(x)[i]
+  if (is.null(name))
+    name <- paste0(i, "_fnorm")
+  el <- experiments(x)[[i]]
+  assays(el)[[1]] <- t(apply(assays(el)[[1]], 1, FUN))
+  return(addAssay(x, el, name = name, 
+                  assayLinks = getAssayLink(x = experiments(x)[[i]],
+                                            y = el, 
+                                            from = i,
+                                            name = name, 
+                                            fcol = fcol)))
+}
+
+
+scp_normalizeSamples <- function(x, 
+                                 i, 
+                                 fcol,
+                                 FUN = "mean", 
+                                 na.rm = TRUE, 
+                                 name = NULL){
+  if(is.numeric(i))
+    i <- names(x)[i]
+  if (is.null(name))
+    name <- paste0(i, "_fnorm")
+  if (FUN == "mean") FUN <- function(val) val - mean(val, na.rm = na.rm)
+  if (FUN == "median") FUN <- function(val) val - median(val, na.rm = na.rm)
+  
+  el <- experiments(x)[[i]]
+  assays(el)[[1]] <- apply(assays(el)[[1]], 2, FUN)
+  return(addAssay(x, el, name = name,
+                  assayLinks = getAssayLink(x = experiments(x)[[i]],
+                                            y = el, 
+                                            from = i,
+                                            name = name, 
+                                            fcol = fcol)))
+}
+
+
+scp_impute <- function(x, 
+                       i, 
+                       name, 
+                       fcol, 
+                       method, ...){
+  if(is.numeric(i))
+    i <- names(x)[i]
+  if (is.null(name))
+    name <- paste0(i, "_imputed")
+  el <- experiments(x)[[i]]
+  assays(el)[[1]] <- method(assays(el)[[1]], ...)
+  return(addAssay(x, el, name = name,
+                  assayLinks = getAssayLink(x = experiments(x)[[i]],
+                                            y = el, 
+                                            from = i,
+                                            name = name, 
+                                            fcol = fcol)))
+}
+KNNimputation <- function(dat, k = 3){
+  # Create a copy of the data, NA values to be filled in later
+  dat.imp<-dat
+  
+  # Calculate similarity metrics for all column pairs (default is Euclidean distance)
+  dist.mat<-as.matrix( dist(t(dat)) )
+  #dist.mat<-as.matrix(as.dist( dist.cosine(t(dat)) ))
+  
+  # Column names of the similarity matrix, same as data matrix
+  cnames<-colnames(dist.mat)
+  
+  # For each column in the data... 
+  for(X in cnames){
+    
+    # Find the distances of all other columns to that column 
+    distances<-dist.mat[, X]
+    
+    # Reorder the distances, smallest to largest (this will reorder the column names as well)
+    distances.ordered<-distances[order(distances, decreasing = F)]
+    
+    # Reorder the data matrix columns, smallest distance to largest from the column of interest
+    # Obviously, first column will be the column of interest, column X
+    dat.reordered<-dat[ , names(distances.ordered ) ]
+    
+    # Take the values in the column of interest
+    vec<-dat[, X]
+    
+    # Which entries are missing and need to be imputed...
+    na.index<-which( is.na(vec) )
+    
+    # For each of the missing entries (rows) in column X...
+    for(i in na.index){
+      
+      # Find the most similar columns that have a non-NA value in this row
+      closest.columns<-names( which( !is.na(dat.reordered[i, ])  ) )
+      
+      # If there are more than k such columns, take the first k most similar
+      if( length(closest.columns)>k ){
+        # Replace NA in column X with the mean the same row in k of the most similar columns
+        vec[i]<-mean( dat[ i, closest.columns[1:k] ] )
+      }
+      
+      # If there are less that or equal to k columns, take all the columns
+      if( length(closest.columns)<=k ){
+        # Replace NA in column X with the mean the same row in all of the most similar columns
+        vec[i]<-mean( dat[ i, closest.columns ])
+      }
+    }
+    # Populate a the matrix with the new, imputed values
+    dat.imp[,X]<-vec
+  }
+  return(dat.imp)
+}
+
+scp_batchCorrect <- function(x, 
+                             i, 
+                             fcol,
+                             batch, 
+                             target, 
+                             name = NULL){
+  if(is.numeric(i))
+    i <- names(x)[i]
+  if (is.null(name))
+    name <- paste0(i, "_batchCorrected")
+  el <- experiments(x)[[i]]
+  if(length(batch) == 1)
+    batch <- colData(el)[, batch]
+  batch <- as.factor(batch)
+  
+  if(length(target) == 1){
+    target <- model.matrix(~ as.factor(colData(el)[, target]))
+  }
+  assays(el)[[1]] <- ComBat(dat = assays(el)[[1]], 
+                            batch = batch, 
+                            mod = target, 
+                            par.prior = T)
+  return(addAssay(x, el, name = name,
+                  assayLinks = getAssayLink(x = experiments(x)[[i]],
+                                            y = el, 
+                                            from = i,
+                                            name = name, 
+                                            fcol = fcol)))
+}

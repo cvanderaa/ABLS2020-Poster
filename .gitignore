@@ -3,4 +3,10 @@
 .RData
 .Ruserdata
 *.Rproj
+data
+
+*.bbl
+*.log
+*.synctex.gz
+
 

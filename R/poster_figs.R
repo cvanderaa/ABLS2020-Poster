@@ -1,69 +1,117 @@
 
-library(scpdata)
 library(SingleCellExperiment)
 library(Features)
+library(magrittr)
+library(ggplot2)
+library(export)
+source("R/utils.R")
 
-peps <- SingleCellExperiment(assays = list(peptide = exprs(specht2019_peptide)), 
-                             rowData = fData(specht2019_peptide),
-                             colData = pData(specht2019_peptide))
+####---- Load the data ----####
 
-fts <- Features(experiments = list(peptide = peps), 
-                colData = colData(peps))
-fts <- scp_normalizeFeatures(fts, "peptide", "mean", name = "peptide_norm")
-fts <- aggregateFeatures(fts, i = "peptide_norm", fcol = "protein", 
-                         name = "protein", fun = colMeans, na.rm = TRUE)
-fts <- scp_normalizeFeatures(fts, "protein", "mean", name = "protein_fnorm")
-fts <- scp_normalizeSamples(fts, "protein_fnorm", "median", name = "protein_snorm")
-scBc <- batchCorrect(scNorm, batch = "raw.file", target = "celltype")
+## The data was downloaded from https://scope2.slavovlab.net/docs/data
+
+## Load metadata
+samps <- t(read.csv("data/Cells.csv", row.names = 1))
+
+## Load data
+dat <- read.csv(file = "data/Peptides-raw.csv")
+rownames(dat) <- dat[, 2]
+colnames(dat)[1:2] <- c("ProteinAccession", "PeptideSequence")
+
+## Create the SingleCellExperiment object
+sce_pep <- SingleCellExperiment(assays = list(as.matrix(dat[, -(1:2)])), 
+                                rowData = dat[, 1:2],
+                                colData = samps[colnames(dat[, -(1:2)]), ])
 
 
+####---- Data manipulation ----####
 
-### Function 
-scp_normalizeFeatures <- function(x, i, FUN = "mean", na.rm = TRUE, name =NULL){
-  if (FUN == "mean") FUN <- function(val) val - mean(val, na.rm = na.rm)
+Features(experiments = list(peptide = sce_pep), 
+         colData = colData(sce_pep)) %>%
+  scp_normalizeFeatures("peptide", fcol = "PeptideSequence",
+                        FUN = "mean", na.rm = TRUE, 
+                        name = "peptide_norm")  %>%
+  scp_aggregateFeatures("peptide_norm", fcol = "ProteinAccession", 
+                        name = "protein", fun = colMeans, na.rm = TRUE)  %>%
+  scp_normalizeFeatures("protein", fcol = "ProteinAccession",
+                        FUN = "mean", na.rm = TRUE, 
+                        name = "protein_fnorm") %>%
+  scp_normalizeSamples("protein_fnorm", fcol = "ProteinAccession",
+                       FUN = "median", na.rm = TRUE, 
+                       name = "protein_snorm") %>%
+  scp_impute("protein_fnorm", fcol = "ProteinAccession",
+             name = "protein_imputed", method = KNNimputation, k = 3) %>%
+  scp_batchCorrect("protein_imputed", fcol = "ProteinAccession",
+                   name = "protein_batchCorrected",
+                   batch = "raw.file", target = "celltype") -> fts
   
-  el <- experiments(x)[[i]]
-  assays(el)[[1]] <- t(apply(assays(el)[[1]], 1, FUN))
   
-  if (is.null(name)) {
-    experiments(x)[[i]] <- el
-    return(el)
-  } else {
-    return(addAssay(x, el, name = name))
-  }
-  
-}
+####---- Plot UMAP of the processed protein data ----####
+
+set.seed(1234)
+library(scater)
+exp <- "protein_batchCorrected"
+fts[[exp]] <- runUMAP(fts[[exp]], 
+                      exprs_values = 1, name = "UMAP",
+                      ncomponents = 20, scale = TRUE)
+ggplot(data.frame(UMAP = reducedDim(fts[[exp]], "UMAP"),
+                  CellType = colData(fts[[exp]])$celltype,
+                  Batch = colData(fts[[exp]])$batch_chromatography)) + 
+  geom_point(aes(x = UMAP.1, y = UMAP.2, 
+                 col = CellType, shape = Batch)) + 
+  scale_color_manual(name = "Cell type", 
+                     values = c(sc_m0 = "skyblue3",
+                                sc_u = "coral"),
+                     labels = c(sc_m0 = "macrophages",
+                                sc_u = "monocytes")) + 
+  ggtitle("UMAP on batch corrected protein expression data")
 
 
-scp_normalizeSamples <- function(x, i, FUN = "mean", na.rm = TRUE, name =NULL){
-  if (FUN == "mean") FUN <- function(val) val - mean(val, na.rm = na.rm)
-  if (FUN == "median") FUN <- function(val) val - median(val, na.rm = na.rm)
-  
-  el <- experiments(x)[[i]]
-  assays(el)[[1]] <- apply(assays(el)[[1]], 2, FUN)
-  
-  if (is.null(name)) {
-    experiments(x)[[i]] <- el
-    return(el)
-  } else {
-    return(addAssay(x, el, name = name))
-  }
-  
-}
+
+plotUMAP(fts[[exp]], colour_by = "celltype", shape_by = "batch_chromatography")
 
 
-batchCorrect <- function(x, batch, target){
-  if(is.character(batch)){
-    batch <- pData(obj)[, batch]
-  } else if (!is.factor(batch)){
-    stop("'batch' should be either a column name (character) in pData(obj) or a factor")
-  }
-  if(is.character(target)){
-    target <- model.matrix(~ as.factor(pData(obj)[, target]))
-  } else if (!is.matrix(target)){
-    stop("'target' should be either a column name (character) in pData(obj) or a design matrix")
-  }
-  exprs(obj) <- ComBat(dat = exprs(obj), batch = batch, mod = target, par.prior = T)
-  return(obj)
-}
+####---- Plot PCA of the processed protein data ----####
+
+exp <- "protein_batchCorrected"
+fts[[exp]] <- runPCA(fts[[exp]], 
+                     exprs_values = 1, name = "PCA",
+                     ncomponents = 2, scale = TRUE)
+plotPCA(fts[[exp]], 
+        colour_by = "celltype", shape_by = "batch_chromatography")
+
+
+####---- Plot expression values for a single protein ----####
+
+test <- fts[, , names(fts)[1:3]]
+sub <- test["P07355", sampleMap(test)$colname[1:200], ]
+sub_df <- data.frame(longFormat(sub, colDataCols = c("celltype")))
+sub_df$type <- ifelse(sub_df$celltype == "sc_u", 1, 2)
+sub_df$UMAP <- reducedDim(fts[[exp]], "UMAP")[sub_df$colname, 2]
+sub_df <- sub_df[sub_df$assay %in% c("peptide", "protein"), ]
+ggplot(data = sub_df,
+       aes(x = reorder(colname, type),
+           y = value,
+           group = rowname)) +
+  xlab("Cells") + ylab("Relative expression value") +
+  geom_line(size = 0.5) + 
+  geom_point(aes(col = celltype), size = 0.5) + 
+  facet_grid(~ assay) + 
+  ggtitle("Annexin A2 peptide and protein expression") + 
+  scale_color_manual(name = "Cell type", 
+                     values = c(sc_m0 = "skyblue3",
+                                sc_u = "coral"),
+                     labels = c(sc_m0 = "macrophages",
+                                sc_u = "monocytes")) + 
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(), 
+        legend.position = "bottom")
+graph2png(file = "figs/annexinA2.png", height = 4, 
+          width = 7)
+
+####---- Plot batch effect ----####
+
+
+
+
 

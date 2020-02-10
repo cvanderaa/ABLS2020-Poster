@@ -12,7 +12,7 @@
 % Towards a standardized workflow for mass spectrometry based single-cell 
 % proteomics
 %
-% Poster for the Applied Bioinformatics for Life Science, February 2020.
+% Poster for the Applied Bioinformatics for Life Science, February 2020, Leuven.
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -96,15 +96,18 @@
 
 \begin{center}
 \colorbox{lgray}{
-  \begin{minipage}{3cm}
-    
+  \begin{minipage}{3.7cm}
     \includegraphics[width=1.2\linewidth]{figs/DSC_2812.jpg}
   \end{minipage}
   %&
-  \begin{minipage}{.74\textwidth}
+  \begin{minipage}{.72\textwidth}
     \begin{center}
       % Title 
-      \huge \textbf{Towards a standardized workflow for mass spectrometry based single-cell proteomics} \\
+      \vspace{0.4cm}
+      \huge 
+      \hspace{1cm}
+      \noindent
+      \textbf{Towards a standardized workflow for mass spectrometry based single-cell proteomics} \\
       \vspace{0.4cm}
       % Authors
       \Large \textbf{Christophe Vanderaa, Laurent Gatto} \\
@@ -113,6 +116,7 @@
       % email
       \vspace{0.4cm}
       \normalsize christophe.vanderaa@uclouvain.be \\
+      \hspace{1cm}
     \end{center}
   \end{minipage}
   %&
@@ -135,7 +139,7 @@
   \vspace{.15cm}
     \section*{\huge Summary}
     \large 
-    Recent advances in sample preparation, processing and mass spectrometry (MS) have allowed the emergence of MS-based \textbf{single-cell proteomics} (SCP). However, bioinformatics tools to process and analyze these new types of data are still missing. In order to boost the development and the benchmarking of SCP methodologies, we are developing the \textbf{\hcode[yellow]{scpdata}} experiment package. The package will distribute published and \textbf{curated} SCP data sets in \textbf{standardized Bioconductor} format.
+    Recent advances in sample preparation, processing and mass spectrometry (MS) have allowed the emergence of MS-based \textbf{single-cell proteomics} (SCP). In order to boost the development of SCP methodologies, we are developing a suite of packages that contain curated data sets (\textbf{\hcode[yellow]{scpdata}}) and dedicated functions (\textbf{\hcode[yellow]{scp}}). It relies on a standardized data structure combining Bioconductor classes used for singe cell analyses (\textbf{\hcode[yellow]{SingleCellExperiment}}), and MS-based proteomics analyses (\textbf{\hcode[yellow]{Features}}) facilitating re-use of current state-of-the-art methodologies.
     \vspace{0.1cm}
   \end{minipage}
 }
@@ -175,11 +179,10 @@
     \end{center}
     \vspace{-0.3cm}
   \textbf{\large SCoPE pipeline} (Budnik et al., 2018, \cite{Budnik2018-qh}) adapts TMT-based proteomics to single-cells. The \textbf{\color{OliveGreen}{throughput is higher}} ($\pm$ 5 samples/hour), but it suffers from \textbf{\color{BrickRed}{presence of chemical noise}}.
-    \begin{center}
-      \includegraphics[width=0.9\linewidth]{figs/scopems.png} \\
-    \end{center}
+    \includegraphics[width=0.9\linewidth]{figs/scopems.png} \\
     \vspace{-0.3cm}
 \end{minipage}
+
 
 % ---------------------------------------------------------------------------
 % Data manipulation
@@ -201,54 +204,13 @@
   \end{lstlisting}
 \end{minipage}
 
-% ---------------------------------------------------------------------------
-% Data quality control
-\noindent
-\begin{minipage}[t]{\linewidth}
-  \vspace{0.55cm}
-  \section*{\huge Data quality control}
-  \large
-  When developing the SCoPE technology, the Slavov lab also suggested some quality control (QC) measures and visualizations \cite{Huffman2019-ns} (Figure \ref{fig:qc}). The \hcode{scpdata} package provides the framework to generalize those metrics.
-  \begin{center}
-    \includegraphics[width=1.05\textwidth]{figs/QC.png}
-  \end{center}
-  \vspace{-0.5cm}
-  \captionof{figure}{\textbf{MS intensity distributions per channel at peptide level.} \small Contamination peptides or peptides with a low identification score were removed. Data taken from run \hcode{190222S\_LCA9\_X\_FP94BF} published in \cite{Specht2019-jm}. n: number of non-missing peptides.}
-  \label{fig:qc}
-\end{minipage}
 
 % ---------------------------------------------------------------------------
-% Content of the package
-\noindent
-\begin{minipage}[t]{\linewidth}
-  \vspace{0.55cm}
-  \section*{\huge Content of the package}
-  \large
-  \hcode{scpdata} contains SCP data sets formatted as \hcode{MSnbase::MSnSet} objects \cite{Gatto2012-tb}. The package provides data at \textbf{peptide} and \textbf{protein} level. \textbf{Help files} are provided for every data set. Available data sets are listed using \hcode{scpdata()}.
-  
-  \footnotesize
-  \begin{tabular}{@{\extracolsep{5pt}} cl} 
-    \\[-1.8ex]\hline 
-    \hline \\[-1.8ex] 
-    \textbf{Item} & \textbf{Title} \\ 
-    \hline \\[-1.8ex] 
-    dou2019\_1\_protein & FACS + nanoPOTS + TMT multiplexing: HeLa digests (Dou et al. 2019) \\ 
-    dou2019\_2\_protein & FACS + nanoPOTS + TMT multiplexing: testing boosting ratios (Dou et al... \\ 
-    dou2019\_3\_protein & FACS + nanoPOTS + TMT multiplexing: profiling of murine cell populations ... \\
-    specht2018\_peptide & SCoPE-MS + mPOP lysis upgrade: Master Mix 20180824 (Specht et al. 2018) \\ 
-    specht2019\_peptide & FACS + SCoPE2: comparing macrophages against monocytes (Specht et al. 2019 \\ 
-    specht2019\_peptide2 & FACS + SCoPE2: comparing macrophages against monocytes (Specht et al. 2019 \\ 
-    specht2019\_protein & FACS + SCoPE2: comparing macrophages against monocytes (Specht et al. 2019 \\ 
-    \hline \\[-1.8ex] 
-  \end{tabular} 
-\end{minipage}
-  
-% ---------------------------------------------------------------------------
-% Benchmarking
+% Data visualization
 \noindent
 \begin{minipage}[t]{\linewidth}
   \vspace{0.5cm}
-  \section*{\huge Benchmarking}
+  \section*{\huge Data visualization}
   \large
   \hcode{scpdata} also offers an ideal environment for benchmarking. It will contain a wide variety of MS-SCP data sets from \textbf{well-defined synthetic standards} to \textbf{real biological samples}. Different methods can be compared using \textbf{objective benchmarking metrics} or \textbf{visualization} with dimension reduction (Figure \ref{fig:pca}).
   \begin{center}
@@ -258,6 +220,19 @@
   \label{fig:pca}
 
 \end{minipage}
+
+% ---------------------------------------------------------------------------
+% Data structure
+\noindent
+\begin{minipage}[t]{\linewidth}
+  \vspace{0.55cm}
+  \section*{\huge Data Structure}
+  \begin{center}
+    \includegraphics[width=0.9\textwidth, trim={2.6cm 5cm 14cm 1cm},clip]{figs/Features.pdf}
+  \end{center}
+  \hspace{3.5cm} \includegraphics[width=0.7\textwidth]{figs/annexinA2.png}
+\end{minipage}
+
 
 % ---------------------------------------------------------------------------
 % Problems to tackle
@@ -270,24 +245,20 @@
   
 % Batch effect
 \noindent
-\begin{minipage}[h]{0.35\linewidth}
+\begin{minipage}[h]{0.5 \linewidth}
   \subsection*{Batch effects}
   \large
   Batch effects are inherent to MS-SCP data since many samples/cells have to be distributed across \textbf{different MS runs}. This leads to major biases in the data (Figure \ref{fig:pca}).
 % Missingness
   \subsection*{Missingness}
-  \captionof{figure}{\textbf{Distribution of missing data in monocytes against macrophages.} \small The average missingness is $\pm$ 75 \%. Color indicates the log2 fold change of \textbf{\color{coral}macrophages} over \textbf{\color{green}monocytes} relative expression. Data from \cite{Specht2019-jm}.}
-  \label{fig:missing}
-  \begin{center}
-  \end{center}
 \end{minipage}
 \hspace{0.4cm}
 % Missingness figure
-\begin{minipage}[h]{0.6\linewidth}
+\begin{minipage}[h]{0.5\linewidth}
   \begin{center}
-  \includegraphics[width=0.5\linewidth, trim={10cm 3cm 7cm 0},clip]{figs/missing-leg.png}
+  \includegraphics[width=0.4\linewidth, trim={10cm 3cm 7cm 0},clip]{figs/missing-leg.png}
+  \includegraphics[width=0.8\linewidth, trim={0 2cm 0 2cm}]{figs/missing.png}
   \end{center}
-  \includegraphics[width=\linewidth, trim={0 2cm 0 2cm}]{figs/missing.png}
 \end{minipage}
 
 % Curse of dimensionality
