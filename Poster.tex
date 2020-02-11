@@ -39,7 +39,7 @@
 \usepackage{listings} 
 \lstset{
   language=R,
-  basicstyle=\small\ttfamily\color{vdgray},       % the size of the fonts that are used for the code
+  basicstyle=\footnotesize\ttfamily\color{vdgray}, % the size of the fonts that are used for the code
   % sensitive=false,
   numbers=left,                   % where to put the line-numbers
   numberstyle=\tiny\color{gray},  % the style that is used for the line-numbers
@@ -139,7 +139,7 @@
   \vspace{.15cm}
     \section*{\huge Summary}
     \large 
-    Recent advances in sample preparation, processing and mass spectrometry (MS) have allowed the emergence of MS-based \textbf{single-cell proteomics} (SCP). In order to boost the development of SCP methodologies, we are developing a suite of packages that contain curated data sets (\textbf{\hcode[yellow]{scpdata}}) and dedicated functions (\textbf{\hcode[yellow]{scp}}). It relies on a standardized data structure combining Bioconductor classes used for singe cell analyses (\textbf{\hcode[yellow]{SingleCellExperiment}}), and MS-based proteomics analyses (\textbf{\hcode[yellow]{Features}}) facilitating re-use of current state-of-the-art methodologies.
+    Recent advances in sample preparation, processing and mass spectrometry (MS) have allowed the emergence of MS-based \textbf{single-cell proteomics} (SCP). We are currently developing a \textbf{workflow} for analyzing MS-SCP data. It relies on a \textbf{standardized} data structure combining Bioconductor classes used for singe-cell analyses, \textbf{\hcode[yellow]{SingleCellExperiment}}\cite{SCE}, and for MS-based proteomics analyses, \textbf{\hcode[yellow]{Features}}\cite{Features}, facilitating re-use of current state-of-the-art software.
     \vspace{0.1cm}
   \end{minipage}
 }
@@ -150,10 +150,9 @@
   \begin{minipage}[t]{13.6cm}
     \vspace{.2cm}
     \section*{\huge Conclusion}
-    \vspace{0.35cm}
     \large
-    MS-based SCP is still in its infancy. Nevertheless, the \hcode[yellow]{scpdata} experiment package offers a growing repository of curated data ideally suited for \textbf{method benchmarking} and \textbf{data QC}. This will enable us to develop new methodologies to tackle the current hurdles that MS-SCP faces: missing data, batch effect, and high dimensionality. 
-    \vspace{0.57cm}
+    MS-based SCP is still in its infancy. Nevertheless, the amount of available data is rapidly increasing and so is the need for dedicated analysis software. We designed a \textbf{standardized workflow} compatible with the current MS-SCP technologies. The data structure allows \textbf{easy integration} of currently available software for data analysis and plotting. It will also facilitate development of dedicated algorithms for dealing with \textbf{missing data} and \textbf{batch effects} that are characteristic of MS-SCP data.
+    \vspace{0.15cm}
  \end{minipage}
 }
 \vspace{-1cm}
@@ -171,16 +170,32 @@
   \vspace{0.5cm}
   \section*{\huge Introduction}
   \large
-  There are two main pipelines able to generate MS-SCP data:
-  \textbf{\large nanoPOTS pipeline} (Zhu et al., 2018, \cite{Zhu2018-bf}) runs label-free proteomics for single cells. The \textbf{\color{BrickRed}{throughput is low}} ($\pm$ 10 samples/day), but it achieves \textbf{\color{OliveGreen}{accurate peptide quantification}}. 
-    \vspace{-0.3cm}
-    \begin{center}
-      \includegraphics[width=0.87\linewidth]{figs/nanopots.png} \\
-    \end{center}
-    \vspace{-0.3cm}
-  \textbf{\large SCoPE pipeline} (Budnik et al., 2018, \cite{Budnik2018-qh}) adapts TMT-based proteomics to single-cells. The \textbf{\color{OliveGreen}{throughput is higher}} ($\pm$ 5 samples/hour), but it suffers from \textbf{\color{BrickRed}{presence of chemical noise}}.
+  There are two main pipelines able to generate MS-SCP data: \\
+  \textbf{\large nanoPOTS pipeline} (Zhu et al., 2018, \cite{Zhu2018-bf}) runs label-free proteomics for single cells. The \textbf{\color{BrickRed}{throughput is low}} ($\pm$ 10 samples/day), but it achieves \textbf{\color{OliveGreen}{accurate peptide quantification}}. Identification is improved using information between runs. 
+  \vspace{-0.3cm}
+  \begin{center}
+    \includegraphics[width=0.87\linewidth]{figs/nanopots.png} \\
+  \end{center}
+  \vspace{-0.3cm}
+  \textbf{\large SCoPE2 pipeline} (Specht et al., 2019, \cite{Specht2019-jm}) adapts TMT-based proteomics to single-cells. The \textbf{\color{OliveGreen}{throughput is higher}} ($\pm$ 5 samples/hour), but it suffers from \textbf{\color{BrickRed}{batch effects}}. Identification is improved using a data-driven Bayesian framework.
+  \begin{center}
     \includegraphics[width=0.9\linewidth]{figs/scopems.png} \\
-    \vspace{-0.3cm}
+  \end{center}
+  \vspace{-0.3cm}
+  \textbf{\large Both methods} generate highly  \textbf{\color{BrickRed}{missing data}}.
+    
+\end{minipage}
+
+% ---------------------------------------------------------------------------
+% Data structure
+\noindent
+\begin{minipage}[t]{\linewidth}
+  \vspace{0.55cm}
+  \section*{\huge Data Structure}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth, trim={2.6cm 5cm 14cm 1cm},clip]{figs/Features.pdf}
+  \end{center}
+  % \hspace{3.5cm} \includegraphics[width=0.7\textwidth]{figs/annexinA2.png}
 \end{minipage}
 
 
@@ -191,19 +206,31 @@
   \vspace{0.55cm}
   \section*{\huge Data manipulation}
   \large
-  The Bioconductor class \hcode{MSnSet} is a reliable framework for \textbf{standard and systematic} quantitative data processing. Below, we have reproduced the analysis pipeline from \cite{Specht2019-jm}:
+  We implemented standardized functions to reproduce part of the analysis from \cite{Specht2019-jm}, integrating functionality from \hcode{Features} and \hcode{SingleCellExperiment}  
   \begin{lstlisting}
-    data("specht2019_peptide")
-    specht2019_peptide %>% 
-      scp_normalize_stat(what = "row", mean, "-") %>%
-      scp_aggregateByProtein() %>%
-      scp_normalize_stat(what = "column", median, "-") %>%
-      scp_normalize_stat(what = "row", mean, "-") %>%
-      imputeKNN(k = 3) %>%
-      batchCorrect(batch = "raw.file", target = "celltype") -> scpd
+  Features(experiments = list(peptide = sce_pep), 
+           colData = colData(sce_pep)) %>%
+    scp_normalizeFeatures("peptide", fcol = "PeptideSequence",
+                          FUN = "mean", na.rm = TRUE, 
+                          name = "peptide_norm")  %>%
+    scp_aggregateFeatures("peptide_norm", fcol = "ProteinAccession", 
+                          fun = colMeans, na.rm = TRUE,
+                          name = "protein")  %>%
+    scp_normalizeFeatures("protein", fcol = "ProteinAccession",
+                          FUN = "mean", na.rm = TRUE, 
+                          name = "protein_fnorm") %>%
+    scp_normalizeSamples("protein_fnorm", fcol = "ProteinAccession",
+                         FUN = "median", na.rm = TRUE, 
+                         name = "protein_snorm") %>%
+    scp_impute("protein_fnorm", fcol = "ProteinAccession",
+               method = KNNimputation, k = 3,
+               name = "protein_imputed") %>%
+    scp_batchCorrect("protein_imputed", fcol = "ProteinAccession",
+                     batch = "raw.file", target = "celltype",
+                     name = "protein_batchCorrected") -> fts
+
   \end{lstlisting}
 \end{minipage}
-
 
 % ---------------------------------------------------------------------------
 % Data visualization
@@ -212,69 +239,54 @@
   \vspace{0.5cm}
   \section*{\huge Data visualization}
   \large
-  \hcode{scpdata} also offers an ideal environment for benchmarking. It will contain a wide variety of MS-SCP data sets from \textbf{well-defined synthetic standards} to \textbf{real biological samples}. Different methods can be compared using \textbf{objective benchmarking metrics} or \textbf{visualization} with dimension reduction (Figure \ref{fig:pca}).
+  Data can directly be analyzed by packages dedicated to the \hcode{SingleCellExperiment} class. For instance, we performed dimension reduction using the \hcode{scater} package. \\
   \begin{center}
-    \includegraphics[width=\textwidth]{figs/PCA.png}
+    \includegraphics[width=0.8\textwidth]{figs/dimred.png}
   \end{center}
-  \captionof{figure}{\textbf{PCA plot of peptide expression data.} \small Macrophages and monocytes are well separated in the third principal component. However, the first and second components are driven by batch effects. LCA10 and LCA9 are two chromatographic batches. The PCA was performed using the NIPALS algorithm.}
-  \label{fig:pca}
-
-\end{minipage}
-
-% ---------------------------------------------------------------------------
-% Data structure
-\noindent
-\begin{minipage}[t]{\linewidth}
-  \vspace{0.55cm}
-  \section*{\huge Data Structure}
+  Feature expression data can straightforwardly be extracted accross different levels thanks to the \hcode{Features} package.
+  \begin{lstlisting}
+    stat3 <- fts["P42227-2", , ]
+  \end{lstlisting}
   \begin{center}
-    \includegraphics[width=0.9\textwidth, trim={2.6cm 5cm 14cm 1cm},clip]{figs/Features.pdf}
+  \includegraphics[width=0.8\textwidth]{figs/Stat.png}
   \end{center}
-  \hspace{3.5cm} \includegraphics[width=0.7\textwidth]{figs/annexinA2.png}
+  
 \end{minipage}
-
 
 % ---------------------------------------------------------------------------
 % Problems to tackle
 \noindent
 \begin{minipage}[t]{\linewidth}
-  \vspace{0.35cm}
   \section*{\huge Problems to tackle}
-  \vspace{0.15cm}
+  \vspace{0.1cm}
 \end{minipage}
-  
-% Batch effect
-\noindent
-\begin{minipage}[h]{0.5 \linewidth}
-  \subsection*{Batch effects}
+% Left column
+\begin{minipage}[t]{0.45\linewidth}
   \large
-  Batch effects are inherent to MS-SCP data since many samples/cells have to be distributed across \textbf{different MS runs}. This leads to major biases in the data (Figure \ref{fig:pca}).
-% Missingness
-  \subsection*{Missingness}
-\end{minipage}
-\hspace{0.4cm}
-% Missingness figure
-\begin{minipage}[h]{0.5\linewidth}
+  \textbf{Batch effect}: \normalsize samples are not independent. Both quantification and identification are biased by the MS run.
   \begin{center}
-  \includegraphics[width=0.4\linewidth, trim={10cm 3cm 7cm 0},clip]{figs/missing-leg.png}
-  \includegraphics[width=0.8\linewidth, trim={0 2cm 0 2cm}]{figs/missing.png}
+    \includegraphics[width=\linewidth, trim={2cm 9cm 2cm 3.5cm},clip]{figs/batchEffect.png}
+  \end{center}
+  \vspace{1.5cm}
+\end{minipage}
+% Right column
+\hspace{1cm}
+\begin{minipage}[t]{0.45\linewidth}
+  \large
+  \textbf{Missing data}: \normalsize MS-SCP data is very sparse due to biological processes but mainly due to technical error.
+  \vspace{0.4cm}
+  \begin{center}
+    \includegraphics[width=0.85\linewidth, trim={0 2cm 0 2cm}]{figs/missing.png} \\
+    \vspace{0.5cm}
+    \includegraphics[width=0.6\linewidth, trim={2cm 1cm 0cm 3.8cm},clip]{figs/missing-leg.png}
   \end{center}
 \end{minipage}
 
-% Curse of dimensionality
-\noindent
-\begin{minipage}[h]{\linewidth}
-  \subsection*{Curse of dimensionality}
-  \large
-  Although current acquisition pipelines produce data sets of \textbf{thousands of peptides x hundreds of cells}, it is expected that new technological advances might raise the dimensionality 100 fold \cite{Specht2019-jm}. This is a challenge for the \textbf{statistical analyses} and for the \textbf{software optimization}. Possible solutions should be inspired from current achievements in single cell transcriptomics. 
-\end{minipage}
 
 % ---------------------------------------------------------------------------
 % Additional notes
-\vspace{0.5cm}
 \noindent
-This work is funded by an Aspirant FRS-FNRS fellowship awarded to Christophe Vanderaa. The poster is available at {\color{blue}{https://github.com/cvanderaa/EuroBioc2019-Poster}}.
-
+This work is funded by an Aspirant FRS-FNRS fellowship awarded to Christophe Vanderaa. The poster is available at {\color{blue}{https://github.com/cvanderaa/ABLS2020-Poster}}.
 
 
 % ---------------------------------------------------------------------------
