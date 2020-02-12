@@ -20,10 +20,14 @@ dat <- read.csv(file = "data/Peptides-raw.csv")
 rownames(dat) <- dat[, 2]
 colnames(dat)[1:2] <- c("ProteinAccession", "PeptideSequence")
 
+assayDat <- as.matrix(dat[, -(1:2)])
+rowDat <- dat[, 1:2]
+colDat <- samps[colnames(dat[, -(1:2)]), ]
+
 ## Create the SingleCellExperiment object
-sce_pep <- SingleCellExperiment(assays = list(as.matrix(dat[, -(1:2)])), 
-                                rowData = dat[, 1:2],
-                                colData = samps[colnames(dat[, -(1:2)]), ])
+sce_pep <- SingleCellExperiment(assays = list(assayDat), 
+                                rowData = rowDat,
+                                colData = colDat)
 
 
 ####---- Data manipulation ----####
@@ -47,7 +51,8 @@ Features(experiments = list(peptide = sce_pep),
              name = "protein_imputed") %>%
   scp_batchCorrect("protein_imputed", fcol = "ProteinAccession",
                    batch = "raw.file", target = "celltype",
-                   name = "protein_batchCorrected") -> fts
+                   name = "protein_batchCorrected") -> 
+  fts
   
   
 ####---- Plot UMAP of the processed protein data ----####
